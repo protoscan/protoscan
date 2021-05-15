@@ -1,5 +1,4 @@
-protoscan
-=========
+# protoscan
 
 [![Build Status](https://cloud.drone.io/api/badges/danil/protoscan/status.svg)](https://cloud.drone.io/danil/protoscan)
 [![Go Reference](https://pkg.go.dev/badge/github.com/danil/protoscan.svg)](https://pkg.go.dev/github.com/danil/protoscan)
@@ -8,13 +7,11 @@ Protocol scanner for Go.
 Source files are distributed under the BSD-style license
 found in the [LICENSE](./LICENSE) file.
 
-Install
--------
+## Install
 
-    go get github.com/danil/protoscan@v0.0.43
+    go get github.com/danil/protoscan@v0.0.44
 
-Benchmark
----------
+## Benchmark
 
 ```
 go test -bench=. ./...

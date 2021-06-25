@@ -1,3 +1,3 @@
-module github.com/danil/protoscan
+module github.com/protoscan/protoscan
 
-go 1.15
+go 1.16

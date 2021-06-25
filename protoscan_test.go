@@ -14,7 +14,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/danil/protoscan"
+	"github.com/protoscan/protoscan"
 )
 
 const smallMaxTokenSize = 256 // Much smaller for more efficient testing.

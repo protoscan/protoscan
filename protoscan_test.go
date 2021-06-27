@@ -49,7 +49,7 @@ func TestScanByte(t *testing.T) {
 		}
 		var i int
 		for i = 0; s.Scan(); i++ {
-			token := s.Tokens[:s.Indexes[0]]
+			token := s.Tokens()[:s.Indexes()[0]]
 			if token[0] != test[i] {
 				t.Errorf("#%d: %d: expected %q got %q", n, i, test, token[0])
 			}
@@ -80,13 +80,13 @@ func TestScanRune(t *testing.T) {
 				break
 			}
 			runeCount++
-			got, _ := utf8.DecodeRune(s.Tokens[:s.Indexes[0]])
+			got, _ := utf8.DecodeRune(s.Tokens()[:s.Indexes()[0]])
 			if got != expect {
 				t.Errorf("#%d: %d: expected %q got %q", n, i, expect, got)
 			}
 		}
 		if s.Scan() {
-			t.Errorf("#%d: scan ran too long, got %q", n, s.Tokens[:s.Indexes[0]])
+			t.Errorf("#%d: scan ran too long, got %q", n, s.Tokens()[:s.Indexes()[0]])
 		}
 		testRuneCount := utf8.RuneCountInString(test)
 		if runeCount != testRuneCount {
@@ -138,18 +138,18 @@ func TestScanWords(t *testing.T) {
 			if !s.Scan() {
 				break
 			}
-			got := string(s.Tokens[:s.Indexes[0]])
+			got := string(s.Tokens()[:s.Indexes()[0]])
 			if got != words[wordCount] {
 				t.Errorf("#%d: %d: expected %q got %q", n, wordCount, words[wordCount], got)
 			}
 		}
 		if s.Scan() {
-			t.Errorf("#%d: scan ran too long, got %q", n, s.Tokens[:s.Indexes[0]])
+			t.Errorf("#%d: scan ran too long, got %q", n, s.Tokens()[:s.Indexes()[0]])
 		}
 		if len(words)-wordCount > 1 || wordCount-len(words) > 0 {
 			t.Errorf("#%d: termination expected at %d; got %d", n, len(words), wordCount)
-		} else if wordCount-len(words) == 1 && string(s.Gaps) != words[len(words)-1] {
-			t.Errorf("#%d: unexpected last word, expected %q; got %q", n, words[len(words)-1], s.Gaps)
+		} else if wordCount-len(words) == 1 && string(s.Gaps()) != words[len(words)-1] {
+			t.Errorf("#%d: unexpected last word, expected %q; got %q", n, words[len(words)-1], s.Gaps())
 		}
 		err := s.Err()
 		if err != nil {
@@ -227,7 +227,7 @@ func TestScanLongLines(t *testing.T) {
 			j--
 		}
 		line := tmp.String() // We use the string-valued token here, for variety.
-		token := s.Tokens[:s.Indexes[0]]
+		token := s.Tokens()[:s.Indexes()[0]]
 		if string(token) != line {
 			t.Errorf("%d: bad line: %d %d\n%.100q\n%.100q\n", lineNum, len(token), len(line), token, line)
 		}
@@ -266,7 +266,7 @@ func TestScanLineTooLong(t *testing.T) {
 			j--
 		}
 		line := tmp.Bytes()
-		token := s.Tokens[:s.Indexes[0]]
+		token := s.Tokens()[:s.Indexes()[0]]
 		if !bytes.Equal(token, line) {
 			t.Errorf("%d: bad line: %d %d\n%.100q\n%.100q\n", lineNum, len(token), len(line), token, line)
 		}
@@ -286,7 +286,7 @@ func testNoNewline(text string, lines []string, t *testing.T) {
 	}
 	for lineNum := 0; s.Scan(); lineNum++ {
 		line := lines[lineNum]
-		token := s.Tokens[:s.Indexes[0]]
+		token := s.Tokens()[:s.Indexes()[0]]
 		if string(token) != line {
 			t.Errorf("%d: bad line: %d %d\n%.100q\n%.100q\n", lineNum, len(token), len(line), token, line)
 		}
@@ -346,20 +346,18 @@ func TestSplitError(t *testing.T) {
 	// Create a split function that delivers a little data, then a predictable error.
 	numSplits := 0
 	const okCount = 7
-	errorSplit := func(data []byte, tokens *[]byte, indexes *[]int, _ *[]byte, atEOF bool) (int, int, error) {
+	errorSplit := func(data []byte, atEOF bool) (int, int, []byte, []int, []byte, error) {
 		if atEOF {
 			panic("didn't get enough data")
 		}
 		if len(data) == 0 {
-			return 1, 0, nil
+			return 1, 0, nil, nil, nil, nil
 		}
 		if numSplits >= okCount {
-			return 0, 0, testError
+			return 0, 0, nil, nil, nil, testError
 		}
 		numSplits++
-		*tokens = append(*tokens, data[0:1]...)
-		*indexes = append(*indexes, len(data[0:1]))
-		return 0, 1, nil
+		return 0, 1, data[0:1], []int{len(data[0:1])}, nil, nil
 	}
 	// Read the data.
 	const text = "abcdefghijklmnopqrstuvwxyz"
@@ -370,7 +368,7 @@ func TestSplitError(t *testing.T) {
 	}
 	var i int
 	for i = 0; s.Scan(); i++ {
-		token := s.Tokens[:s.Indexes[0]]
+		token := s.Tokens()[:s.Indexes()[0]]
 		if len(token) != 1 || text[i] != token[0] {
 			t.Errorf("#%d: expected %q got %q", i, text[i], token[0])
 		}
@@ -389,15 +387,15 @@ func TestSplitError(t *testing.T) {
 func TestErrAtEOF(t *testing.T) {
 	s := protoscan.Protoscan{Reader: strings.NewReader("1 2 33")}
 	// This splitter will fail on last entry, after s.err==EOF.
-	split := func(data []byte, tokens *[]byte, indexes *[]int, gaps *[]byte, atEOF bool) (int, int, error) {
-		hint, advance, err := protoscan.ScanWords(data, tokens, indexes, gaps, atEOF)
-		if len(*indexes) != 0 && len((*tokens)[:(*indexes)[0]]) > 1 {
+	split := func(data []byte, atEOF bool) (int, int, []byte, []int, []byte, error) {
+		hint, advance, tokens, indexes, gaps, err := protoscan.ScanWords(data, atEOF)
+		if len(indexes) != 0 && len((tokens)[:(indexes)[0]]) > 1 {
 			if s.ErrOrEOF() != io.EOF {
 				t.Fatal("not testing EOF")
 			}
 			err = testError
 		}
-		return hint, advance, err
+		return hint, advance, tokens, indexes, gaps, err
 	}
 	s.Split = split
 	for s.Scan() {
@@ -460,7 +458,7 @@ func TestScanWordsExcessiveWhiteSpace(t *testing.T) {
 	if !scan.Scan() {
 		t.Fatalf("scan failed: %v", scan.Err())
 	}
-	token := scan.Tokens[:scan.Indexes[0]]
+	token := scan.Tokens()[:scan.Indexes()[0]]
 	if string(token) != strings.Fields(words)[0] {
 		t.Fatalf("unexpected token, expected: %q, received: %q", strings.Fields(words)[0], token)
 	}
@@ -469,23 +467,19 @@ func TestScanWordsExcessiveWhiteSpace(t *testing.T) {
 // Test that empty tokens, including at end of line or end of file, are found by the scanner.
 // Issue 8672: Could miss final empty token.
 
-func commaSplit(data []byte, tokens *[]byte, indexes *[]int, gaps *[]byte, atEOF bool) (int, int, error) {
+func commaSplit(data []byte, atEOF bool) (int, int, []byte, []int, []byte, error) {
 	for i := 0; i < len(data); i++ {
 		if data[i] == ',' {
-			*tokens = append(*tokens, data[:i]...)
-			*indexes = append(*indexes, len(data[:i]))
-			return 0, i + 1, nil
+			return 0, i + 1, data[:i], []int{len(data[:i])}, nil, nil
 		}
 	}
 	if atEOF && len(data) > 0 {
-		*tokens = append(*tokens, data...)
-		*indexes = append(*indexes, len(data))
-		return 0, len(data), protoscan.FinalToken
+		return 0, len(data), data, []int{len(data)}, nil, protoscan.FinalToken
 	}
 	if atEOF {
-		return 0, 0, nil
+		return 0, 0, nil, nil, nil, nil
 	}
-	return 1, 0, nil
+	return 1, 0, nil, nil, nil, nil
 }
 
 func testEmptyTokens(t *testing.T, text string, values []string) {
@@ -498,7 +492,7 @@ func testEmptyTokens(t *testing.T, text string, values []string) {
 		if i >= len(values) {
 			t.Fatalf("got %d fields, expected %d", i+1, len(values))
 		}
-		token := s.Tokens[:s.Indexes[0]]
+		token := s.Tokens()[:s.Indexes()[0]]
 		if string(token) != values[i] {
 			t.Errorf("%d: expected %q got %q", i, values[i], token)
 		}
@@ -519,15 +513,11 @@ func TestWithNoEmptyTokens(t *testing.T) {
 	testEmptyTokens(t, "1,2,3", []string{"1", "2", "3"})
 }
 
-func loopAtEOFSplit(data []byte, tokens *[]byte, indexes *[]int, gaps *[]byte, atEOF bool) (int, int, error) {
+func loopAtEOFSplit(data []byte, atEOF bool) (int, int, []byte, []int, []byte, error) {
 	if len(data) > 0 {
-		*tokens = append(*tokens, data[:1]...)
-		*indexes = append(*indexes, len(data[:1]))
-		return 0, 1, nil
+		return 0, 1, data[:1], []int{len(data[:1])}, nil, nil
 	}
-	*tokens = append(*tokens, data...)
-	*indexes = append(*indexes, len(data))
-	return 0, 0, nil
+	return 0, 0, data, []int{len(data)}, nil, nil
 }
 
 func TestDontLoopForever(t *testing.T) {
@@ -562,17 +552,15 @@ func TestBlankLines(t *testing.T) {
 
 type countdown int
 
-func (c *countdown) split(data []byte, tokens *[]byte, indexes *[]int, gaps *[]byte, atEOF bool) (int, int, error) {
+func (c *countdown) split(data []byte, atEOF bool) (int, int, []byte, []int, []byte, error) {
 	if len(data) == 0 {
-		return 1, 0, nil
+		return 1, 0, nil, nil, nil, nil
 	}
 	if *c > 0 {
 		*c--
-		*tokens = append(*tokens, data[:1]...)
-		*indexes = append(*indexes, len(data[:1]))
-		return 0, 1, nil
+		return 0, 1, data[:1], []int{len(data[:1])}, nil, nil
 	}
-	return 0, 0, nil
+	return 0, 0, nil, nil, nil, nil
 }
 
 // Check that the looping-at-EOF check doesn't trigger for merely empty tokens.
@@ -602,7 +590,7 @@ func TestHugeBuffer(t *testing.T) {
 		MaxBuffer: 2*protoscan.MaxBuffer + 1,
 	}
 	for s.Scan() {
-		token := s.Tokens[:s.Indexes[0]]
+		token := s.Tokens()[:s.Indexes()[0]]
 		if string(token) != text {
 			t.Errorf("scan got incorrect token of length %d", len(token))
 		}
@@ -645,7 +633,7 @@ func TestNegativeEOFReader(t *testing.T) {
 	var l []string
 	for s.Scan() {
 		c++
-		token := s.Tokens[:s.Indexes[0]]
+		token := s.Tokens()[:s.Indexes()[0]]
 		l = append(l, fmt.Sprintf("%q", token))
 		if c > 10 {
 			t.Errorf("read too many lines: %d, %v", c, l)

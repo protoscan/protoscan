@@ -9,7 +9,7 @@ found in the [LICENSE](./LICENSE) file.
 
 ## Install
 
-    go get github.com/protoscan/protoscan@v0.2.0
+    go get github.com/protoscan/protoscan@v0.3.0
 
 ## Benchmark
 
@@ -18,5 +18,6 @@ go test -bench=. ./...
 goarch: amd64
 pkg: github.com/protoscan/protoscan
 cpu: 11th Gen Intel(R) Core(TM) i5-1135G7 @ 2.40GHz
-BenchmarkScanRune-8   	 1339424	       886.5 ns/op	     232 B/op	       5 allocs/op
+BenchmarkScanRune
+BenchmarkScanRune-8   	 1206433	       973.3 ns/op	     152 B/op	      16 allocs/op
 ```

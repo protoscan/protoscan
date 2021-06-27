@@ -147,7 +147,7 @@ func (s *Protoscan) Scan() bool {
 			return false
 		}
 		s.start += advance
-		if len(indexes) != 0 && advance > 0 {
+		if tokens != nil && advance > 0 {
 			s.empties = 0
 			return true
 		} else if advance > 0 {
@@ -238,9 +238,10 @@ func (s *Protoscan) setErr(err error) {
 // Split functions:
 
 // ScanBytes is a split function for a Protoscan that returns each byte as a token.
+// Always returns only one token and nil as indexes and gaps.
 func ScanBytes(data []byte, atEOF bool) (int, int, []byte, []int, []byte, error) {
 	if len(data) > 0 {
-		return 0, 1, data[:0], []int{1}, nil, nil
+		return 0, 1, data[:1], nil, nil, nil
 	}
 	if atEOF {
 		return 0, 0, nil, nil, nil, nil
@@ -251,11 +252,14 @@ func ScanBytes(data []byte, atEOF bool) (int, int, []byte, []int, []byte, error)
 var errorRune = []byte(string(utf8.RuneError))
 
 // ScanRunes is a split function for a Protoscan that returns each
-// UTF-8-encoded rune as a token. The sequence of runes returned is
-// equivalent to that from a range loop over the input as a string, which
-// means that erroneous UTF-8 encodings translate to U+FFFD = "\xef\xbf\xbd".
-// Because of the Scan interface, this makes it impossible for the client to
-// distinguish correctly encoded replacement runes from encoding errors.
+// UTF-8-encoded rune as a token.
+// Always returns only one token and nil as indexes and gaps.
+//
+// The sequence of runes returned is equivalent to that from a range loop
+// over the input as a string, which means that erroneous UTF-8 encodings
+// translate to U+FFFD = "\xef\xbf\xbd". Because of the Scan interface,
+// this makes it impossible for the client to distinguish correctly encoded
+// replacement runes from encoding errors.
 func ScanRunes(data []byte, atEOF bool) (int, int, []byte, []int, []byte, error) {
 	if atEOF && len(data) == 0 {
 		return 0, 0, nil, nil, nil, nil
@@ -267,7 +271,7 @@ func ScanRunes(data []byte, atEOF bool) (int, int, []byte, []int, []byte, error)
 
 	// Fast path 1: ASCII.
 	if data[0] < utf8.RuneSelf {
-		return 0, 1, data[:0], []int{1}, nil, nil
+		return 0, 1, data[:1], nil, nil, nil
 	}
 
 	// Fast path 2: Correct UTF-8 decode without error.
@@ -275,7 +279,7 @@ func ScanRunes(data []byte, atEOF bool) (int, int, []byte, []int, []byte, error)
 	if width > 1 {
 		// It's a valid encoding. Width cannot be one for a correctly encoded
 		// non-ASCII rune.
-		return 0, width, data[0:width], []int{width}, nil, nil
+		return 0, width, data[0:width], nil, nil, nil
 	}
 
 	// We know it's an error: we have width==1 and implicitly r==utf8.RuneError.
@@ -289,26 +293,28 @@ func ScanRunes(data []byte, atEOF bool) (int, int, []byte, []int, []byte, error)
 	// We have a real UTF-8 encoding error. Return a properly encoded error rune
 	// but advance only one byte. This matches the behavior of a range loop over
 	// an incorrectly encoded string.
-	return 0, 1, []byte(errorRune), []int{len(errorRune)}, nil, nil
+	return 0, 1, []byte(errorRune), nil, nil, nil
 }
 
 // ScanLines is a split function for a Protoscan that returns each line of
-// text, stripped of any trailing end-of-line marker. The returned line may
-// be empty. The end-of-line marker is one optional carriage return followed
-// by one mandatory newline. In regular expression notation, it is `\r?\n`.
-// The last non-empty line of input will be returned even if it has no
-// newline.
+// text, stripped of any trailing end-of-line marker.
+// Always returns only one token and nil as indexes and gaps.
+//
+// The returned line may be empty. The end-of-line marker is one optional
+// carriage return followed by one mandatory newline. In regular expression
+// notation, it is `\r?\n`. The last non-empty line of input will be returned
+// even if it has no newline.
 func ScanLines(data []byte, atEOF bool) (int, int, []byte, []int, []byte, error) {
 	if atEOF && len(data) == 0 {
 		return 0, 0, nil, nil, nil, nil
 	}
 	if i := bytes.IndexByte(data, '\n'); i >= 0 {
 		// We have a full newline-terminated line.
-		return 0, i + 1, dropCR(data[0:i]), []int{len(dropCR(data[0:i]))}, nil, nil
+		return 0, i + 1, dropCR(data[0:i]), nil, nil, nil
 	}
 	// If we're at EOF, we have a final, non-terminated line. Return it.
 	if atEOF {
-		return 0, len(data), dropCR(data), []int{len(dropCR(data))}, nil, nil
+		return 0, len(data), dropCR(data), nil, nil, nil
 	}
 	// Request more data.
 	return 1, 0, nil, nil, nil, nil
@@ -323,8 +329,10 @@ func dropCR(data []byte) []byte {
 }
 
 // ScanWords is a split function for a Protoscan that returns each
-// space-separated word of text, with surrounding spaces deleted. It will
-// never return an empty string. The definition of space is set by
+// space-separated word of text, with surrounding spaces deleted.
+// Always returns only one token and nil as indexes and gaps.
+//
+// It will never return an empty string. The definition of space is set by
 // unicode.IsSpace. If at EOF, and have non-empty, non-terminated word and it
 // holded in the gaps.
 func ScanWords(data []byte, atEOF bool) (int, int, []byte, []int, []byte, error) {
@@ -342,12 +350,12 @@ func ScanWords(data []byte, atEOF bool) (int, int, []byte, []int, []byte, error)
 		var r rune
 		r, width = utf8.DecodeRune(data[i:])
 		if isSpace(r) {
-			return 0, i + width, data[start:i], []int{len(data[start:i])}, nil, nil
+			return 0, i + width, data[start:i], nil, nil, nil
 		}
 	}
 	// If we're at EOF, we have a final, non-empty, non-terminated word. Return it.
 	if atEOF && len(data) > start {
-		return 0, len(data), data[start:], []int{len(data[start:])}, nil, nil
+		return 0, len(data), data[start:], nil, nil, nil
 	}
 	// Request more data.
 	return 1, 0, nil, nil, nil, nil

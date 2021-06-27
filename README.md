@@ -9,7 +9,7 @@ found in the [LICENSE](./LICENSE) file.
 
 ## Install
 
-    go get github.com/protoscan/protoscan@v0.4.0
+    go get github.com/protoscan/protoscan@v0.5.0
 
 ## Benchmark
 

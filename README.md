@@ -4,16 +4,11 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/protoscan/protoscan.svg)](https://pkg.go.dev/github.com/protoscan/protoscan)
 
 Protocol scanner for Go.  
-Source files are distributed under the BSD-style license
-found in the [LICENSE](./LICENSE) file.
-
-## Install
-
-    go get github.com/protoscan/protoscan@v0.5.0
+Source files are distributed under the BSD-style license.
 
 ## Benchmark
 
-```
+```sh
 go test -bench=. ./...
 goarch: amd64
 pkg: github.com/protoscan/protoscan

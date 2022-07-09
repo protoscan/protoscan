@@ -9,10 +9,12 @@ Source files are distributed under the BSD-style license.
 ## Benchmark
 
 ```sh
-go test -bench=. ./...
+go test -run ^NOTHING -bench BenchmarkScanRune\$
+goos: linux
 goarch: amd64
 pkg: github.com/protoscan/protoscan
-cpu: 11th Gen Intel(R) Core(TM) i5-1135G7 @ 2.40GHz
-BenchmarkScanRune
-BenchmarkScanRune-8   	 1410456	       827.9 ns/op	      40 B/op	       2 allocs/op
+cpu: 11th Gen Intel(R) Core(TM) i7-1165G7 @ 2.80GHz
+BenchmarkScanRune-8   	 1894521	       618.2 ns/op	      40 B/op	       2 allocs/op
+PASS
+ok  	github.com/protoscan/protoscan	1.815s
 ```

@@ -100,13 +100,16 @@ func TestScanRune(t *testing.T) {
 
 func BenchmarkScanRune(b *testing.B) {
 	b.ReportAllocs()
+
 	for i := 0; i < b.N; i++ {
 		test := scanTests[len(scanTests)-1]
 		buf := strings.NewReader(test)
+
 		s := protoscan.Protoscan{
 			Reader: buf,
 			Split:  protoscan.ScanRunes,
 		}
+
 		for s.Scan() {
 		}
 	}

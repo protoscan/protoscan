@@ -9,7 +9,7 @@ Source files are distributed under the BSD-style license.
 ## Benchmark
 
 ```sh
-go test -run ^NOTHING -bench BenchmarkScanRune\$
+$ go test -run ^NOTHING -bench BenchmarkScanRune\$
 goos: linux
 goarch: amd64
 pkg: github.com/protoscan/protoscan

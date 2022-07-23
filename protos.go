@@ -59,12 +59,12 @@ type SplitFunc func(data []byte, atEOF bool) (hint int, advance int, token []byt
 
 // Errors returned by Protoscan.
 var (
-	TooLong         = errors.New("protoscan: token too long")
-	NegativeAdvance = errors.New("protoscan: SplitFunc returns negative advance count of the data input")
-	AdvanceTooFar   = errors.New("protoscan: SplitFunc returns advance count beyond input")
-	BadReadCount    = errors.New("protoscan: Read returned impossible count")
-	NegativeHint    = errors.New("protoscan: SplitFunc hinted negative size of the token")
-	NoProgress      = errors.New("protoscan: too many scans without progressing")
+	ErrTooLong         = errors.New("protoscan: token too long")
+	ErrNegativeAdvance = errors.New("protoscan: SplitFunc returns negative advance count of the data input")
+	ErrAdvanceTooFar   = errors.New("protoscan: SplitFunc returns advance count beyond input")
+	ErrBadReadCount    = errors.New("protoscan: Read returned impossible count")
+	ErrNegativeHint    = errors.New("protoscan: SplitFunc hinted negative size of the token")
+	ErrNoProgress      = errors.New("protoscan: too many scans without progressing")
 )
 
 // FinalToken is a special sentinel error value. It is intended to be
@@ -132,7 +132,7 @@ func (s *Protoscan) Scan() bool {
 		} else {
 			s.empties++
 			if s.empties > maxConsecutiveIdling {
-				s.setErr(NoProgress)
+				s.setErr(ErrNoProgress)
 				return false
 			}
 		}
@@ -162,7 +162,7 @@ func (s *Protoscan) Scan() bool {
 		for s.end < claim {
 			n, err := s.Reader.Read(s.Buffer[s.end:claim])
 			if n < 0 || len(s.Buffer)-s.end < n {
-				s.setErr(BadReadCount)
+				s.setErr(ErrBadReadCount)
 				break
 			}
 			s.end += n
@@ -187,10 +187,10 @@ func (s *Protoscan) Scan() bool {
 // It reports whether the advance was legal.
 func (s Protoscan) advance(n int) error {
 	if n < 0 {
-		return NegativeAdvance
+		return ErrNegativeAdvance
 	}
 	if s.start+n > s.end {
-		return AdvanceTooFar
+		return ErrAdvanceTooFar
 	}
 	return nil
 }
@@ -198,12 +198,12 @@ func (s Protoscan) advance(n int) error {
 // hint validates hint.
 func (s Protoscan) hint(n int) error {
 	if n < 0 {
-		return NegativeHint
+		return ErrNegativeHint
 	}
 	// Guarantee no buffer overflow.
 	const maxInt = int(^uint(0) >> 1)
 	if s.end+n > s.MaxBuffer || s.end+n > maxInt {
-		return TooLong
+		return ErrTooLong
 	}
 	return nil
 }

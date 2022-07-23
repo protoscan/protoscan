@@ -270,7 +270,7 @@ func TestScanLineTooLong(t *testing.T) {
 		}
 	}
 	err := s.Err()
-	if err != protoscan.TooLong {
+	if err != protoscan.ErrTooLong {
 		t.Fatalf("expected ErrTooLong; got %s", err)
 	}
 }
@@ -524,7 +524,7 @@ func TestDontLoopForever(t *testing.T) {
 			t.Fatal("looping")
 		}
 	}
-	if s.Err() != protoscan.NoProgress {
+	if s.Err() != protoscan.ErrNoProgress {
 		t.Fatal("after scan:", s.Err())
 	}
 }
@@ -632,7 +632,7 @@ func TestNegativeEOFReader(t *testing.T) {
 			break
 		}
 	}
-	if got, want := s.Err(), protoscan.BadReadCount; got != want {
+	if got, want := s.Err(), protoscan.ErrBadReadCount; got != want {
 		t.Errorf("Err: got %v, want %v", got, want)
 	}
 }
@@ -655,7 +655,7 @@ func TestLargeReader(t *testing.T) {
 	}
 	for s.Scan() {
 	}
-	if got, want := s.Err(), protoscan.BadReadCount; got != want {
+	if got, want := s.Err(), protoscan.ErrBadReadCount; got != want {
 		t.Errorf("Err: got %v, want %v", got, want)
 	}
 }

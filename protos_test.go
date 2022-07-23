@@ -43,14 +43,11 @@ var scanTests = []string{
 func TestScanByte(t *testing.T) {
 	for n, test := range scanTests {
 		buf := strings.NewReader(test)
-		s := protoscan.Protoscan{
-			Reader: buf,
-			Split:  protoscan.ScanBytes,
-		}
+		s := protoscan.New(buf, protoscan.WithSplit(protoscan.ScanBytes))
 		var i int
 		for i = 0; s.Scan(); i++ {
-			if s.Token[0] != test[i] {
-				t.Errorf("#%d: %d: expected %q got %q", n, i, test, s.Token[0])
+			if s.Token()[0] != test[i] {
+				t.Errorf("#%d: %d: expected %q got %q", n, i, test, s.Token()[0])
 			}
 		}
 		if i != len(test) {
@@ -67,10 +64,7 @@ func TestScanByte(t *testing.T) {
 func TestScanRune(t *testing.T) {
 	for n, test := range scanTests {
 		buf := strings.NewReader(test)
-		s := protoscan.Protoscan{
-			Reader: buf,
-			Split:  protoscan.ScanRunes,
-		}
+		s := protoscan.New(buf, protoscan.WithSplit(protoscan.ScanRunes))
 		var i, runeCount int
 		var expect rune
 		// Use a string range loop to validate the sequence of runes.
@@ -79,13 +73,13 @@ func TestScanRune(t *testing.T) {
 				break
 			}
 			runeCount++
-			got, _ := utf8.DecodeRune(s.Token)
+			got, _ := utf8.DecodeRune(s.Token())
 			if got != expect {
 				t.Errorf("#%d: %d: expected %q got %q", n, i, expect, got)
 			}
 		}
 		if s.Scan() {
-			t.Errorf("#%d: scan ran too long, got %q", n, s.Token)
+			t.Errorf("#%d: scan ran too long, got %q", n, s.Token())
 		}
 		testRuneCount := utf8.RuneCountInString(test)
 		if runeCount != testRuneCount {
@@ -105,10 +99,7 @@ func BenchmarkScanRune(b *testing.B) {
 		test := scanTests[len(scanTests)-1]
 		buf := strings.NewReader(test)
 
-		s := protoscan.Protoscan{
-			Reader: buf,
-			Split:  protoscan.ScanRunes,
-		}
+		s := protoscan.New(buf, protoscan.WithSplit(protoscan.ScanRunes))
 
 		for s.Scan() {
 		}
@@ -130,23 +121,20 @@ var wordScanTests = []string{
 func TestScanWords(t *testing.T) {
 	for n, test := range wordScanTests {
 		buf := strings.NewReader(test)
-		s := protoscan.Protoscan{
-			Reader: buf,
-			Split:  protoscan.ScanWords,
-		}
+		s := protoscan.New(buf, protoscan.WithSplit(protoscan.ScanWords))
 		words := strings.Fields(test)
 		var wordCount int
 		for wordCount = 0; wordCount < len(words); wordCount++ {
 			if !s.Scan() {
 				break
 			}
-			got := string(s.Token)
+			got := string(s.Token())
 			if got != words[wordCount] {
 				t.Errorf("#%d: %d: expected %q got %q", n, wordCount, words[wordCount], got)
 			}
 		}
 		if s.Scan() {
-			t.Errorf("#%d: scan ran too long, got %q", n, s.Token)
+			t.Errorf("#%d: scan ran too long, got %q", n, s.Token())
 		}
 		if wordCount != len(words) {
 			t.Errorf("#%d: termination expected at %d; got %d", n, len(words), wordCount)
@@ -213,11 +201,10 @@ func TestScanLongLines(t *testing.T) {
 		buf.Write(tmp.Bytes())
 		lineNum++
 	}
-	s := protoscan.Protoscan{
-		Reader:    &slowReader{1, buf},
-		Split:     protoscan.ScanLines,
-		MaxBuffer: smallMaxTokenSize,
-	}
+	s := protoscan.New(&slowReader{1, buf},
+		protoscan.WithSplit(protoscan.ScanLines),
+		protoscan.WithMaxBuffer(smallMaxTokenSize),
+	)
 	j = 0
 	for lineNum := 0; s.Scan(); lineNum++ {
 		genLine(tmp, lineNum, j, false)
@@ -227,8 +214,10 @@ func TestScanLongLines(t *testing.T) {
 			j--
 		}
 		line := tmp.String() // We use the string-valued token here, for variety.
-		if string(s.Token) != line {
-			t.Errorf("%d: bad line: %d %d\n%.100q\n%.100q\n", lineNum, len(s.Token), len(line), s.Token, line)
+		if string(s.Token()) != line {
+			t.Errorf("%d: bad line: %d %d\n%.100q\n%.100q\n",
+				lineNum, len(s.Token()), len(line), s.Token(), line,
+			)
 		}
 	}
 	err := s.Err()
@@ -251,11 +240,11 @@ func TestScanLineTooLong(t *testing.T) {
 		buf.Write(tmp.Bytes())
 		lineNum++
 	}
-	s := protoscan.Protoscan{
-		Reader:    &slowReader{3, buf},
-		Split:     protoscan.ScanLines,
-		MaxBuffer: smallMaxTokenSize,
-	}
+	s := protoscan.New(
+		&slowReader{3, buf},
+		protoscan.WithSplit(protoscan.ScanLines),
+		protoscan.WithMaxBuffer(smallMaxTokenSize),
+	)
 	j = 0
 	for lineNum := 0; s.Scan(); lineNum++ {
 		genLine(tmp, lineNum, j, false)
@@ -265,8 +254,10 @@ func TestScanLineTooLong(t *testing.T) {
 			j--
 		}
 		line := tmp.Bytes()
-		if !bytes.Equal(s.Token, line) {
-			t.Errorf("%d: bad line: %d %d\n%.100q\n%.100q\n", lineNum, len(s.Token), len(line), s.Token, line)
+		if !bytes.Equal(s.Token(), line) {
+			t.Errorf("%d: bad line: %d %d\n%.100q\n%.100q\n",
+				lineNum, len(s.Token()), len(line), s.Token(), line,
+			)
 		}
 	}
 	err := s.Err()
@@ -278,14 +269,16 @@ func TestScanLineTooLong(t *testing.T) {
 // Test that the line splitter handles a final line without a newline.
 func testNoNewline(text string, lines []string, t *testing.T) {
 	buf := strings.NewReader(text)
-	s := protoscan.Protoscan{
-		Reader: &slowReader{7, buf},
-		Split:  protoscan.ScanLines,
-	}
+	s := protoscan.New(
+		&slowReader{7, buf},
+		protoscan.WithSplit(protoscan.ScanLines),
+	)
 	for lineNum := 0; s.Scan(); lineNum++ {
 		line := lines[lineNum]
-		if string(s.Token) != line {
-			t.Errorf("%d: bad line: %d %d\n%.100q\n%.100q\n", lineNum, len(s.Token), len(line), s.Token, line)
+		if string(s.Token()) != line {
+			t.Errorf("%d: bad line: %d %d\n%.100q\n%.100q\n",
+				lineNum, len(s.Token()), len(line), s.Token(), line,
+			)
 		}
 	}
 	err := s.Err()
@@ -359,14 +352,14 @@ func TestSplitError(t *testing.T) {
 	// Read the data.
 	const text = "abcdefghijklmnopqrstuvwxyz"
 	buf := strings.NewReader(text)
-	s := protoscan.Protoscan{
-		Reader: &slowReader{1, buf},
-		Split:  errorSplit,
-	}
+	s := protoscan.New(
+		&slowReader{1, buf},
+		protoscan.WithSplit(errorSplit),
+	)
 	var i int
 	for i = 0; s.Scan(); i++ {
-		if len(s.Token) != 1 || text[i] != s.Token[0] {
-			t.Errorf("#%d: expected %q got %q", i, text[i], s.Token[0])
+		if len(s.Token()) != 1 || text[i] != s.Token()[0] {
+			t.Errorf("#%d: expected %q got %q", i, text[i], s.Token()[0])
 		}
 	}
 	// Check correct termination location and error.
@@ -381,7 +374,8 @@ func TestSplitError(t *testing.T) {
 
 // Test that an EOF is overridden by a user-generated scan error.
 func TestErrAtEOF(t *testing.T) {
-	s := protoscan.Protoscan{Reader: strings.NewReader("1 2 33")}
+	var s *protoscan.Protoscan
+
 	// This splitter will fail on last entry, after s.err==EOF.
 	split := func(data []byte, atEOF bool) (int, int, []byte, error) {
 		hint, advance, token, err := protoscan.ScanWords(data, atEOF)
@@ -393,7 +387,7 @@ func TestErrAtEOF(t *testing.T) {
 		}
 		return hint, advance, token, err
 	}
-	s.Split = split
+	s = protoscan.New(strings.NewReader("1 2 33"), protoscan.WithSplit(split))
 	for s.Scan() {
 	}
 	if s.Err() != testError {
@@ -409,10 +403,10 @@ func (alwaysError) Read(s []byte) (int, error) {
 }
 
 func TestNonEOFWithEmptyRead(t *testing.T) {
-	s := protoscan.Protoscan{
-		Reader: alwaysError{},
-		Split:  protoscan.ScanLines,
-	}
+	s := protoscan.New(
+		alwaysError{},
+		protoscan.WithSplit(protoscan.ScanLines),
+	)
 	for s.Scan() {
 		t.Fatal("read should fail")
 	}
@@ -430,10 +424,10 @@ func (endlessZeros) Read(s []byte) (int, error) {
 }
 
 func TestBadReader(t *testing.T) {
-	s := protoscan.Protoscan{
-		Reader: endlessZeros{},
-		Split:  protoscan.ScanLines,
-	}
+	s := protoscan.New(
+		endlessZeros{},
+		protoscan.WithSplit(protoscan.ScanLines),
+	)
 	for s.Scan() {
 		t.Fatal("read should fail")
 	}
@@ -446,16 +440,18 @@ func TestBadReader(t *testing.T) {
 func TestScanWordsExcessiveWhiteSpace(t *testing.T) {
 	const words = "lorem ipsum"
 	s := strings.Repeat(" ", 4*smallMaxTokenSize) + words
-	scan := protoscan.Protoscan{
-		Reader:    strings.NewReader(s),
-		Split:     protoscan.ScanWords,
-		MaxBuffer: 4*smallMaxTokenSize + len(strings.Fields(words)[0]) + 1,
-	}
+	scan := protoscan.New(
+		strings.NewReader(s),
+		protoscan.WithSplit(protoscan.ScanWords),
+		protoscan.WithMaxBuffer(4*smallMaxTokenSize+len(strings.Fields(words)[0])+1),
+	)
 	if !scan.Scan() {
 		t.Fatalf("scan failed: %v", scan.Err())
 	}
-	if string(scan.Token) != strings.Fields(words)[0] {
-		t.Fatalf("unexpected token, expected: %q, received: %q", strings.Fields(words)[0], scan.Token)
+	if string(scan.Token()) != strings.Fields(words)[0] {
+		t.Fatalf("unexpected token, expected: %q, received: %q",
+			strings.Fields(words)[0], scan.Token(),
+		)
 	}
 }
 
@@ -478,17 +474,17 @@ func commaSplit(data []byte, atEOF bool) (int, int, []byte, error) {
 }
 
 func testEmptyTokens(t *testing.T, text string, values []string) {
-	s := protoscan.Protoscan{
-		Reader: strings.NewReader(text),
-		Split:  commaSplit,
-	}
+	s := protoscan.New(
+		strings.NewReader(text),
+		protoscan.WithSplit(commaSplit),
+	)
 	var i int
 	for i = 0; s.Scan(); i++ {
 		if i >= len(values) {
 			t.Fatalf("got %d fields, expected %d", i+1, len(values))
 		}
-		if string(s.Token) != values[i] {
-			t.Errorf("%d: expected %q got %q", i, values[i], s.Token)
+		if string(s.Token()) != values[i] {
+			t.Errorf("%d: expected %q got %q", i, values[i], s.Token())
 		}
 	}
 	if i != len(values) {
@@ -515,10 +511,10 @@ func loopAtEOFSplit(data []byte, atEOF bool) (int, int, []byte, error) {
 }
 
 func TestDontLoopForever(t *testing.T) {
-	s := protoscan.Protoscan{
-		Reader: strings.NewReader("abc"),
-		Split:  loopAtEOFSplit,
-	}
+	s := protoscan.New(
+		strings.NewReader("abc"),
+		protoscan.WithSplit(loopAtEOFSplit),
+	)
 	for count := 0; s.Scan(); count++ {
 		if count > 1000 {
 			t.Fatal("looping")
@@ -530,10 +526,10 @@ func TestDontLoopForever(t *testing.T) {
 }
 
 func TestBlankLines(t *testing.T) {
-	s := protoscan.Protoscan{
-		Reader: strings.NewReader(strings.Repeat("\n", 1000)),
-		Split:  protoscan.ScanLines,
-	}
+	s := protoscan.New(
+		strings.NewReader(strings.Repeat("\n", 1000)),
+		protoscan.WithSplit(protoscan.ScanLines),
+	)
 	for count := 0; s.Scan(); count++ {
 		if count > 2000 {
 			t.Fatal("looping")
@@ -560,10 +556,10 @@ func (c *countdown) split(data []byte, atEOF bool) (int, int, []byte, error) {
 // Check that the looping-at-EOF check doesn't trigger for merely empty tokens.
 func TestEmptyLinesOK(t *testing.T) {
 	c := countdown(10000)
-	s := protoscan.Protoscan{
-		Reader: strings.NewReader(strings.Repeat("\n", 10000)),
-		Split:  c.split,
-	}
+	s := protoscan.New(
+		strings.NewReader(strings.Repeat("\n", 10000)),
+		protoscan.WithSplit(c.split),
+	)
 	for s.Scan() {
 	}
 	if s.Err() != nil {
@@ -577,15 +573,15 @@ func TestEmptyLinesOK(t *testing.T) {
 // Make sure we can read a huge token if a big enough buffer is provided.
 func TestHugeBuffer(t *testing.T) {
 	text := strings.Repeat("x", 2*protoscan.MaxBuffer)
-	s := protoscan.Protoscan{
-		Reader:    strings.NewReader(text + "\n"),
-		Split:     protoscan.ScanLines,
-		Buffer:    make([]byte, 100),
-		MaxBuffer: 2*protoscan.MaxBuffer + 1,
-	}
+	s := protoscan.New(
+		strings.NewReader(text+"\n"),
+		protoscan.WithSplit(protoscan.ScanLines),
+		protoscan.WithBuffer(make([]byte, 100)),
+		protoscan.WithMaxBuffer(2*protoscan.MaxBuffer+1),
+	)
 	for s.Scan() {
-		if string(s.Token) != text {
-			t.Errorf("scan got incorrect token of length %d", len(s.Token))
+		if string(s.Token()) != text {
+			t.Errorf("scan got incorrect token of length %d", len(s.Token()))
 		}
 	}
 	if s.Err() != nil {
@@ -618,15 +614,12 @@ func (r *negativeEOFReader) Read(s []byte) (int, error) {
 // (issue https://github.com/golang/go/issues/38053).
 func TestNegativeEOFReader(t *testing.T) {
 	r := negativeEOFReader(10)
-	s := protoscan.Protoscan{
-		Reader: &r,
-		Split:  protoscan.ScanLines,
-	}
+	s := protoscan.New(&r, protoscan.WithSplit(protoscan.ScanLines))
 	c := 0
 	var l []string
 	for s.Scan() {
 		c++
-		l = append(l, fmt.Sprintf("%q", s.Token))
+		l = append(l, fmt.Sprintf("%q", s.Token()))
 		if c > 10 {
 			t.Errorf("read too many lines: %d, %v", c, l)
 			break
@@ -649,10 +642,7 @@ func (largeReader) Read(s []byte) (int, error) {
 // on a reader that returns an impossibly large count of bytes read
 // (issue https://github.com/golang/go/issues/38053).
 func TestLargeReader(t *testing.T) {
-	s := protoscan.Protoscan{
-		Reader: largeReader{},
-		Split:  protoscan.ScanLines,
-	}
+	s := protoscan.New(largeReader{}, protoscan.WithSplit(protoscan.ScanLines))
 	for s.Scan() {
 	}
 	if got, want := s.Err(), protoscan.ErrBadReadCount; got != want {

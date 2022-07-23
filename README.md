@@ -14,12 +14,12 @@ its extremely slow and allocates a lots of memory.
 ## Benchmark
 
 ```sh
-$ go test -run ^NOTHING -bench BenchmarkScanRune\$
+go test -run ^NOTHING -bench BenchmarkScanRune\$
 goos: linux
 goarch: amd64
 pkg: github.com/protoscan/protoscan
 cpu: 11th Gen Intel(R) Core(TM) i7-1165G7 @ 2.80GHz
-BenchmarkScanRune-8   	 1894521	       618.2 ns/op	      40 B/op	       2 allocs/op
+BenchmarkScanRune-8   	 2048562	       579.1 ns/op	     209 B/op	       2 allocs/op
 PASS
-ok  	github.com/protoscan/protoscan	1.815s
+ok  	github.com/protoscan/protoscan	1.783s
 ```
